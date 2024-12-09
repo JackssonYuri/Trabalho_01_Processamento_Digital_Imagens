@@ -1,49 +1,48 @@
 from PIL import Image
 import numpy as np
-import sys
+import argparse
 
 def codificar(imagem_entrada, texto_entrada, plano_bits, imagem_saida):
-    # Abrir a imagem
     imagem = Image.open(imagem_entrada)
     dados = np.array(imagem)
 
-    # Ler a mensagem
-    # Abrir a mensagem com UTF-8
+    # Read image
     with open(texto_entrada, 'r', encoding='utf-8') as arquivo:
         mensagem = arquivo.read()
 
+    # Convert image to binary (ASCII) and add a end mark
+    mensagem_bin = ''.join(f'{ord(c):08b}' for c in mensagem) + '00000000' 
     
-    # Converter mensagem em binário (ASCII)
-    mensagem_bin = ''.join(f'{ord(c):08b}' for c in mensagem) + '00000000'  # Adiciona marcador de fim
-    
-    # Verificar capacidade da imagem
+    # Check image capacity
     h, w, _ = dados.shape
     capacidade = h * w * 3
     if len(mensagem_bin) > capacidade:
         raise ValueError("A mensagem é muito grande para ser embutida nesta imagem.")
     
-    # Inserir os bits da mensagem nos bits menos significativos
+    # Insert message bits into least significant bits
     mensagem_idx = 0
     for i in range(h):
         for j in range(w):
-            for k in range(3):  # Canais RGB
+            for k in range(3):  # RGB Channels
                 if mensagem_idx < len(mensagem_bin):
                     bit_mensagem = int(mensagem_bin[mensagem_idx])
-                    mascara = 255 ^ (1 << plano_bits)  # Máscara para preservar os bits sem gerar números negativos
+                    mascara = 255 ^ (1 << plano_bits)  
                     dados[i, j, k] = np.uint8((dados[i, j, k] & mascara) | (bit_mensagem << plano_bits))
                     mensagem_idx += 1
     
-    # Salvar a nova imagem com a mensagem embutida
+    # Save the new image with the message 
     nova_imagem = Image.fromarray(dados)
     nova_imagem.save(imagem_saida)
     print(f"Mensagem embutida com sucesso em {imagem_saida}")
 
 if __name__ == "__main__":
-    # Leitura dos argumentos
-    imagem_entrada = sys.argv[1]
-    texto_entrada = sys.argv[2]
-    plano_bits = int(sys.argv[3])
-    imagem_saida = sys.argv[4]
+    parser = argparse.ArgumentParser(description='Script para codificação da mensagem em uma imagem')
+
+    parser.add_argument('imagem_entrada', type=str, help = 'Imagem de entrada para ser decodificada')
+    parser.add_argument('texto_entrada', type=str, help = 'Texto de entrada')
+    parser.add_argument('plano_bits', type=int, help = 'Plano de bits')
+    parser.add_argument('imagem_saida', type=str, help = 'Imagem de saída')
+
+    args = parser.parse_args()
     
-    # Chamada da função
-    codificar(imagem_entrada, texto_entrada, plano_bits, imagem_saida)
+    codificar(args.imagem_entrada, args.texto_entrada, args.plano_bits, args.imagem_saida)
